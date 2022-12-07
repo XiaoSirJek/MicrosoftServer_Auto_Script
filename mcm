@@ -1,0 +1,229 @@
+#!/bin/bash
+# mcm.sh
+# ManagerMcPanl
+# Manage Minecraft servers
+# The script comes from BlackCat and GuGuGe
+# The script is suitable for Centos 7 and Xshell terminal
+
+if test "$1" == "start"; then
+    tmux new-session -s McManager -n Server -d
+    tmux send-keys -t McManager "java -jar ${Install_Directory}/server.jar" Enter
+    tmux split-window -h -p 60 -t McManager
+    exit
+elif test "$1" == "stop"; then
+    kill "$(ps -aux | grep "java" | grep "Sl+" | awk '{print $2}')"
+    exit
+fi
+
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '...................,]]].....................]]]].......................................'
+echo '.......=@@@@@@@@@^.=@@@.....................@@@@........,@@@@@@@@^............]@@[.....'
+echo '.......=@@@^.,@@@@.=@@@...,]]]]`......]]]]].@@@@..]]]],@@@@[........,]]]]`..]/@@@\]`...'
+echo '.......=@@@@]@@@/..=@@@..@@@[@@@@`./@@@@@@@^@@@@,@@@@./@@@`........@@@/@@@@.@@@@@@@^...'
+echo '.......=@@@/[@@@@\.=@@@...]]@@@@@^=@@@^.....@@@@@@@^..@@@@`.........]]@@@@@^.=@@@^.....'
+echo '.......=@@@^..=@@@^=@@@./@@@`.@@@^=@@@^.....@@@@@@@\..=@@@@.......@@@@`*@@@^.=@@@^.....'
+echo '.......=@@@@@@@@@/.=@@@.@@@@\@@@@^.@@@@@@@@^@@@@,@@@@`.,@@@@@@@@@^@@@@@@@@@^.,@@@@@^...'
+echo '.......,[[[[[[[`...,[[[..,[[[[[[[`...[[[[[[.[[[[..[[[[`...[[[[[[[..,[[[[[[[`...[[[[`...'
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '.......................................................................................'
+
+Install_Directory="$(dirname "$(find / -name server.jar)")"
+
+# Server admin panel functions
+function Manager_Termainal() {
+
+    if ! tmux ls | grep McManager; then
+        tmux new-session -s McManager -n Server -d
+        tmux send-keys -t McManager "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+        tmux split-window -h -p 60 -t McManager
+    else
+        printf "\e[5;32m进入管理面板后使用 Ctrl + B 后按 D 退出服务器后台管理\e[0m\n"
+        sleep 2
+        if ! lsof | grep mcm | grep ^sh; then
+            tmux send-keys -t McManager:0.1 'mcm access' Enter
+        fi
+        tmux attach -t McManager
+    fi
+    return 0
+}
+
+# Server configuration functions
+function Server_Set() {
+    while :; do
+        list=()
+        keys=''
+        read -r -p "请输入你要修改的参数关键字(quit退出):" keys
+        if test "${keys}" == "quit"; then
+            return 0
+            exit
+        fi
+        grep_keys=$(grep ".*${keys}.*" "${Install_Directory}"/server.properties)
+        for i in $grep_keys; do
+            list[${#list[@]}]=$i
+        done
+        printf "选择过滤的参数(Ctrl+删除键删除错误文本)>>>"
+        for ((i = 0; i < ${#list[@]}; i++)); do
+            printf "\e[3%2m(%s)%s\e[0m " "${i}" "${list[${i}]}"
+            ((x++))
+        done
+        printf "\n请输入选项："
+        read -r yn
+        read -r -p "请输入该选项参数：" messages
+        sed -ri "s/($(echo "${list[${yn}]}" | cut -d "=" -f 1)).*/\1=${messages}/" "${Install_Directory}"/server.properties
+        printf "参数\e[32m%s:修改成功\e[\n" "${list[${yn}]}"
+    done
+    return 0
+}
+
+# View the server resource consumption function
+function sys_stat() {
+    echo -e "\033[1;31m使用 Ctrl + C 来强制终止任务，目前还没想到更好的终止方式\033[0m"
+    int=$(ifconfig | sed -n 's/\(ens[0-9]\+\): .*/\1/p')
+    while :; do
+        # Get Real-time monitoring of the network speed
+        down_speed_old=$(ifconfig "${int}" | sed -n "s/RX.*bytes \([0-9]\+\).*/\1/p")
+        up_speed_old=$(ifconfig "${int}" | sed -n "s/TX.*bytes \([0-9]\+\).*/\1/p")
+
+        sleep 1
+
+        up_speed_new=$(ifconfig "${int}" | sed -n "s/TX.*bytes \([0-9]\+\).*/\1/p")
+        down_speed_new=$(ifconfig "${int}" | sed -n "s/RX.*bytes \([0-9]\+\).*/\1/p")
+
+        up_speed_now=$(echo "scale=4; ($up_speed_new - $up_speed_old)/1024" | bc)
+        down_speed_now=$(echo "scale=4; ($down_speed_new - $down_speed_old)/1024" | bc)
+
+        format=$(echo "($up_speed_new - $up_speed_old)/1024" | bc)
+
+        # Get memory status
+        total=$(free -hm | grep "^Mem.*" | awk '{print $2}')
+        used=$(free -hm | grep "^Mem.*" | awk '{print $3}')
+        free=$(free -hm | grep "^Mem.*" | awk '{print $4}')
+        memory=$(printf "总内存为:%s 使用:%s 剩余:%s\n" "${total}" "${used}" "${free}")
+
+        # Get I/O status
+        util=$(vmstat | awk '{if(NR==3)print $13+$14}')
+        iowait=$(vmstat | awk '{if(NR==3)print $16}')
+        cpu=$(printf "CPU使用率:%s%% I/O使用率:%s%%" "${util}" "${iowait}")
+
+        if [[ ${format} -lt 5 || ${format} -eq 5 ]]; then
+            printf "%s\t%s\t\e[1;0mUP:\e[0m\e[5;32m%0.2f\e[0m KB/s\t\e[1;0mDN:\e[0m%0.2f KB/s\r" "${cpu}" "${memory}" "${up_speed_now}" "${down_speed_now}"
+        elif [[ ${format} -gt 5 || ${format} -lt 10 ]]; then
+            printf "%s\t%s\t\e[1;0mUP:\e[0m\e[5;33m%0.2f\e[0m KB/s\t\e[1;0mDN:\e[0m%0.2f KB/s\r" "${cpu}" "${memory}" "${up_speed_now}" "${down_speed_now}"
+        elif [[ ${format} -gt 10 || ${format} -eq 10 ]]; then
+            printf "%s\t%s\t\e[1;0mUP:\e[0m\e[5;31m%0.2f\e[0m KB/s\t\e[1;0mDN:\e[0m%0.2f KB/s\r" "${cpu}" "${memory}" "${up_speed_now}" "${down_speed_now}"
+        fi
+    done
+    return 0
+}
+
+# MCM Quick Action Options
+case $1 in
+"access")
+    while :; do
+        read -r -p "请输入指令(quit退出):" command1
+        if test "${command1}" == "quit"; then
+            echo -e "\033[31mByeBye~~~\033[0m"
+            exit
+        else
+            tmux send-keys -t McManager:0.0 "${command1}" Enter
+        fi
+    done
+    ;;
+"status")
+    sys_stat
+    mcm
+    ;;
+"setting")
+    Server_Set
+    ;;
+"upmod")
+    echo "可以一次性选中多个 Mod 进行上传QAQ"
+    cd "${Install_Directory}"/mods && rz
+    mcm
+    ;;
+
+"uppulgin")
+    printf "可以一次性选择多个 Pulg-in 进行上传QAQ\n"
+    cd "${Install_Directory}"/plugins && rz
+    mcm
+    ;;
+"help")
+    printf "\e[1;32m标准指令:\e[0mmcm [options]\n[options]:\n1)access:直接输入游戏中可见的服务器指令，即可完成快速操作\n2)status:弹出服务器当前状态\n\
+3)setting:使用模糊查找来对server.properties文件进行快速更改\n4)upmod:弹出上传框,快速的上传MOD\n5):弹出上传框,快速的上传插件\n"
+    exit
+    ;;
+"[A-Za-z0-9_]*")
+    printf "%s" "使用 help 查看帮助文档"
+    exit
+    ;;
+esac
+
+# The user selects the menu
+input=
+until
+    printf "\tMcServerManger'Mune Build on Mohist\n"
+    printf ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+    printf "\t1) 管理后台\t\t2) 服务器配置\n\t3) 查看服务器资源       4) 状态管理\n\t5) 模组上传\t\t6) IP\n\t7) 插件上传\t\t8) 退出\n"
+    printf "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+    read -r -p "请选择序号来进行操作：" input
+    test "$input" -eq 8
+do
+    case $input in
+    1)
+        if ! lsof | grep java; then
+            tmux send-key -t McManager:0.0 "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+        fi
+        Manager_Termainal
+        ;;
+
+    2)
+        Server_Set
+        ;;
+    3)
+        sys_stat
+        ;;
+    4)
+        printf "1)%s 2)%s 3)%s" "停止" "重启" "启动"
+        read -r -p "操作序号：" apply
+        case $apply in
+        1)
+            tmux send-keys -t McManager:0.0 'stop' Enter
+            break
+            ;;
+        2)
+            tmux send-keys -t MaManager:0.0 'restart' Enter
+            break
+            ;;
+        3)
+            tmux send-keys -t McManager "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+            break
+            ;;
+        *)
+            echo '请输入正确的操作序号!!!'
+            ;;
+        esac
+        ;;
+    5)
+        echo "可以一次性选中多个 Mod 进行上传QAQ"
+        cd "${Install_Directory}"/mods && rz
+        ;;
+    6)
+        server_port=$(grep "server-port" "${Install_Directory}"/server.properties | cut -d "=" -f 2)
+        printf "您当前的端口为:\e[34m%s\e[0m\n" "${server_port}"
+        printf "您可以使用\e[4;32m%s\e[0m:\e[36m%d \e[0m链接您的游戏~~\n" "$(curl -s cip.cc | grep "^IP.*" | cut -d ":" -f 2)" "${server_port}"
+        printf "\n\n"
+        ;;
+    7)
+        printf "可以一次性选择多个 Pulg-in 进行上传QAQ\n"
+        cd "${Install_Directory}"/plugins && rz
+        ;;
+    *)
+        printf "请输入正确的选项"
+        ;;
+
+    esac
+done
+printf ">>>>感谢使用<<<<\n"
