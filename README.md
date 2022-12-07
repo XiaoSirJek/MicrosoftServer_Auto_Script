@@ -1,0 +1,2 @@
+# MicrosoftServer_Auto_Script
+一个基于Mohist内核的我的世界服务器部署脚本，包含Systemctl 管理守护进程，以及一个便捷管理的 Shell Menu
