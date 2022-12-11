@@ -11,7 +11,7 @@
 ###### **一键部署指令：** 
 
 ```shell
-yum -y install wget && https://cloud.xiaoyi.ink/d/CodeRepository/mc.tar.gz && sh ./mcserverinstall/install
+yum install wget && wget https://cloud.xiaoyi.ink/d/CodeRepository/mcserver.tar.gz && tar -zxvf mcserver.tar.gz && sh ./mcserver/install.sh
 ```
 
 
@@ -34,7 +34,7 @@ yum -y install wget && https://cloud.xiaoyi.ink/d/CodeRepository/mc.tar.gz && sh
 
 **command**
 
--   mcm access command ->> 快速的向我的世界服务器后台发送指令
+-   mcm access ->> 快速的向我的世界服务器后台发送指令
 -   mcm setting ->> 使用模糊搜索对 `server.properties` 文件进行更改
     -   command 为发送到我的世界服务器指令
 -   mcm status [memory|cpu|disk] ->> 资源状态查看(后续会添加正在连接用户以及连接方地址详细信息)
