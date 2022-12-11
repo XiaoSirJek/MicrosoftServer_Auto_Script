@@ -31,7 +31,7 @@ server_pwd=$(find "${Install_Directory}" -name server.jar | grep server.jar)
 function NumsOne() {
     yum -y install java-1.8.0-openjdk-devel.x86_64
     if [[ ! -e ${server_pwd} ]]; then
-        wget -c "https://ci.codemc.io/job/MohistMC/job/Mohist-1.12.2/lastSuccessfulBuild/artifact/projects/mohist/build/libs/mohist-1.12.2-320-server.jar" -O "${Install_Directory}"/server.jar
+        wget -c "https://cloud.xiaoyi.ink/d/ServerSoft/mohist-1.12.2-320-server.jar" -O "${Install_Directory}"/server.jar
     fi
     return $?
 }
@@ -40,7 +40,7 @@ function NumsOne() {
 function NumsTwo() {
     yum -y install java-11-openjdk-devel.x86_64
     if [[ ! -e ${server_pwd} ]]; then
-        wget -c 'https://ci.codemc.io/job/MohistMC/job/Mohist-1.16.5/lastSuccessfulBuild/artifact/projects/mohist/build/libs/mohist-1.16.5-1091-server.jar' -O "${Install_Directory}"/server.jar
+        wget -c 'https://cloud.xiaoyi.ink/d/ServerSoft/mohist-1.16.5-1091-server.jar' -O "${Install_Directory}"/server.jar
     fi
     return $?
 }
@@ -48,9 +48,20 @@ function NumsTwo() {
 # Create a virtual terminal
 function Tmux_Begin() {
     if ! tmux has-session -t McManager; then
-        tmux new-session -s McManager -n Server -d
-        tmux send-keys -t McManager "cd ""${Install_Directory}"" && java -jar ${Install_Directory}/server.jar" Enter
-        tmux split-window -h -p 60 -t McManager
+        # McManager:0.0 执行运行服务器命令
+        tmux new-session -s McManager -n status -d
+        # McManager:0.1 执行 状态监视命令
+        tmux split-window -v -p 20 -t McManager
+        # McManager:0.2 执行查看当前用户命令
+        tmux split-window -h -p 25 -t McManager:0.1
+        # McManager:0.3 执行输入命令
+        tmux split-window -h -p 40 -t McManager:0.0
+
+        # McManager:0.0 执行 java -jar server.jar
+        tmux send-keys -t McManager:0.0 "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+        tmux send-keys -t McManager:0.1 'mcm status' Enter
+        tmux send-keys -t McManager:0.2 'echo "当前连接用户"' Enter
+        tmux send-keys -t McManager:0.3 'mcm access' Enter
     fi
 }
 
@@ -143,7 +154,7 @@ for ((i = 0; i <= 100; i += 1)); do
     b=">$b"
 done
 echo "服务器启动完成>>>>"
-tmux sned-keys -t McManager:0.0 'true' Enter
+tmux send-keys -t McManager:0.0 'true' Enter
 echo "[${Now_Date}]Install Over~" >>./run.log
 printf "======================Mc Manager For TUI================================\n"
 printf "\t在您看到这条信息的时候，你已经可以使用 mcm 来进行管理啦~\n"
@@ -151,3 +162,5 @@ printf "\t记得在 mcm 菜单中选择[管理后台]选项哦~~~\n"
 printf "\t我的世界服务器已部署完成，其他配置请输入 mcm 来继续进行操作1\n"
 printf "\t\t\t感谢使用~~~~\n"
 printf "========================================================================\n"
+sleep 5
+tmux attach -t McManager
