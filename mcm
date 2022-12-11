@@ -5,49 +5,37 @@
 # The script comes from BlackCat and GuGuGe
 # The script is suitable for Centos 7 and Xshell terminal
 
-if test "$1" == "start"; then
-    tmux new-session -s McManager -n Server -d
-    tmux send-keys -t McManager "java -jar ${Install_Directory}/server.jar" Enter
-    tmux split-window -h -p 60 -t McManager
-    exit
-elif test "$1" == "stop"; then
-    kill "$(ps -aux | grep "java" | grep "Sl+" | awk '{print $2}')"
-    exit
-fi
-
-echo '.......................................................................................'
-echo '.......................................................................................'
-echo '.......................................................................................'
-echo '...................,]]].....................]]]].......................................'
-echo '.......=@@@@@@@@@^.=@@@.....................@@@@........,@@@@@@@@^............]@@[.....'
-echo '.......=@@@^.,@@@@.=@@@...,]]]]`......]]]]].@@@@..]]]],@@@@[........,]]]]`..]/@@@\]`...'
-echo '.......=@@@@]@@@/..=@@@..@@@[@@@@`./@@@@@@@^@@@@,@@@@./@@@`........@@@/@@@@.@@@@@@@^...'
-echo '.......=@@@/[@@@@\.=@@@...]]@@@@@^=@@@^.....@@@@@@@^..@@@@`.........]]@@@@@^.=@@@^.....'
-echo '.......=@@@^..=@@@^=@@@./@@@`.@@@^=@@@^.....@@@@@@@\..=@@@@.......@@@@`*@@@^.=@@@^.....'
-echo '.......=@@@@@@@@@/.=@@@.@@@@\@@@@^.@@@@@@@@^@@@@,@@@@`.,@@@@@@@@@^@@@@@@@@@^.,@@@@@^...'
-echo '.......,[[[[[[[`...,[[[..,[[[[[[[`...[[[[[[.[[[[..[[[[`...[[[[[[[..,[[[[[[[`...[[[[`...'
-echo '.......................................................................................'
-echo '.......................................................................................'
-echo '.......................................................................................'
-
 Install_Directory="$(dirname "$(find / -name server.jar)")"
 
 # Server admin panel functions
 function Manager_Termainal() {
 
-    if ! tmux ls | grep McManager; then
-        tmux new-session -s McManager -n Server -d
-        tmux send-keys -t McManager "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
-        tmux split-window -h -p 60 -t McManager
+    if ! tmux has-session -t McManager; then
+        # McManager:0.0 执行运行服务器命令
+        tmux new-session -s McManager -n status -d
+        # McManager:0.1 执行 状态监视命令
+        tmux split-window -v -p 20 -t McManager
+        # McManager:0.2 执行查看当前用户命令
+        tmux split-window -h -p 25 -t McManager:0.1
+        # McManager:0.3 执行输入命令
+        tmux split-window -h -p 40 -t McManager:0.0
+
+        # McManager:0.0 执行 java -jar server.jar
+        tmux send-keys -t McManager:0.0 "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+        tmux send-keys -t McManager:0.1 'mcm status' Enter
+        tmux send-keys -t McManager:0.2 'echo "当前连接用户"' Enter
+        tmux send-keys -t McManager:0.3 'mcm access' Enter
     else
         printf "\e[5;32m进入管理面板后使用 Ctrl + B 后按 D 退出服务器后台管理\e[0m\n"
         sleep 2
-        if ! lsof | grep mcm | grep ^sh; then
-            tmux send-keys -t McManager:0.1 'mcm access' Enter
+        if ! ps -aux | grep "mcm access"; then
+            tmux send-keys -t McManager:0.3 'mcm access' Enter
         fi
-        tmux attach -t McManager
+        if ! ps -aux | grep "mcm status"; then
+            tmux attach -t McManager:0.3 'mcm status' Enter
+        fi
     fi
-    return 0
+    return $?
 }
 
 # Server configuration functions
@@ -65,17 +53,18 @@ function Server_Set() {
             list[${#list[@]}]=$i
         done
         printf "选择过滤的参数(Ctrl+删除键删除错误文本)>>>"
+        x=0
         for ((i = 0; i < ${#list[@]}; i++)); do
-            printf "\e[3%2m(%s)%s\e[0m " "${i}" "${list[${i}]}"
+            printf "\e[32m(%s)%s" "${i}" "${list[${i}]}"
             ((x++))
         done
-        printf "\n请输入选项："
+        printf " %s\e[0m\n请输入选项：" "${x}"
         read -r yn
         read -r -p "请输入该选项参数：" messages
-        sed -ri "s/($(echo "${list[${yn}]}" | cut -d "=" -f 1)).*/\1=${messages}/" "${Install_Directory}"/server.properties
-        printf "参数\e[32m%s:修改成功\e[\n" "${list[${yn}]}"
+        sed -ri "s/^($(echo "${list[${yn}]}" | cut -d "=" -f 1)).*/\1=${messages}/" "${Install_Directory}"/server.properties
+        printf "参数\e[32m%s:修改成功\e[0m\n" "${list[${yn}]}"
     done
-    return 0
+    return $?
 }
 
 # View the server resource consumption function
@@ -116,20 +105,47 @@ function sys_stat() {
             printf "%s\t%s\t\e[1;0mUP:\e[0m\e[5;31m%0.2f\e[0m KB/s\t\e[1;0mDN:\e[0m%0.2f KB/s\r" "${cpu}" "${memory}" "${up_speed_now}" "${down_speed_now}"
         fi
     done
-    return 0
+    return $?
 }
 
+if test "$1" == "start"; then
+    if ! tmux has-session -t McManager; then
+        # McManager:0.0 执行运行服务器命令
+        tmux new-session -s McManager -n status -d
+        # McManager:0.1 执行 状态监视命令
+        tmux split-window -v -p 20 -t McManager
+        # McManager:0.2 执行查看当前用户命令
+        tmux split-window -h -p 25 -t McManager:0.1
+        # McManager:0.3 执行输入命令
+        tmux split-window -h -p 40 -t McManager:0.0
+
+        # McManager:0.0 执行 java -jar server.jar
+        tmux send-keys -t McManager:0.0 "cd ${Install_Directory} && java -jar ${Install_Directory}/server.jar" Enter
+        tmux send-keys -t McManager:0.1 'mcm status' Enter
+        tmux send-keys -t McManager:0.2 'echo "当前连接用户"' Enter
+        tmux send-keys -t McManager:0.3 'mcm access' Enter
+    fi
+    exit
+elif test "$1" == "stop"; then
+    kill "$(pgrep -u root java)"
+    exit
+elif test "$1" == "restart"; then
+    kill "$(pgrep -u root java)"
+    tmux send-keys -t McManager:0.0 "java -jar ${Install_Directory}/server.jar" Enter
+fi
 # MCM Quick Action Options
 case $1 in
 "access")
     while :; do
-        read -r -p "请输入指令(quit退出):" command1
-        if test "${command1}" == "quit"; then
+        printf "%s" "请输入指令(quit退出)>>"
+        read -r answer
+        printf "%s" "<<\n"
+        if test "${answer}" == "quit"; then
             echo -e "\033[31mByeBye~~~\033[0m"
-            exit
-        else
-            tmux send-keys -t McManager:0.0 "${command1}" Enter
+            break
         fi
+        tmux send-keys -t McManager:0.0 "${answer}" Enter
+        printf "指令\e[5;32m>>\e[0m\e[1;45;30m%s\e[0m\e[5;32m<<\e[0m发送成功\n" "${answer}"
     done
     ;;
 "status")
@@ -160,6 +176,20 @@ case $1 in
     exit
     ;;
 esac
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '...................,]]].....................]]]].......................................'
+echo '.......=@@@@@@@@@^.=@@@.....................@@@@........,@@@@@@@@^............]@@[.....'
+echo '.......=@@@^.,@@@@.=@@@...,]]]]`......]]]]].@@@@..]]]],@@@@[........,]]]]`..]/@@@\]`...'
+echo '.......=@@@@]@@@/..=@@@..@@@[@@@@`./@@@@@@@^@@@@,@@@@./@@@`........@@@/@@@@.@@@@@@@^...'
+echo '.......=@@@/[@@@@\.=@@@...]]@@@@@^=@@@^.....@@@@@@@^..@@@@`.........]]@@@@@^.=@@@^.....'
+echo '.......=@@@^..=@@@^=@@@./@@@`.@@@^=@@@^.....@@@@@@@\..=@@@@.......@@@@`*@@@^.=@@@^.....'
+echo '.......=@@@@@@@@@/.=@@@.@@@@\@@@@^.@@@@@@@@^@@@@,@@@@`.,@@@@@@@@@^@@@@@@@@@^.,@@@@@^...'
+echo '.......,[[[[[[[`...,[[[..,[[[[[[[`...[[[[[[.[[[[..[[[[`...[[[[[[[..,[[[[[[[`...[[[[`...'
+echo '.......................................................................................'
+echo '.......................................................................................'
+echo '.......................................................................................'
 
 # The user selects the menu
 input=
