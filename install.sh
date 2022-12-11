@@ -1,6 +1,6 @@
 #!/bin/bash
 # The core comes from Mohist
-# version:1.1.4
+# version:1.2.0
 # The script comes from BlackCat and GuGuGe
 # The script is suitable for Centos 7 and Xshell terminal
 
